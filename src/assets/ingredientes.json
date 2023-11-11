@@ -1,0 +1,51 @@
+{
+    "alimentos": [
+   
+        "Frango",
+        "Carne Bovina",
+        "Peixe",
+        "Porco",
+        "Cordeiro",
+    
+
+    
+        "Maçã",
+        "Banana",
+        "Laranja",
+        "Uva",
+        "Pêssego",
+        "Melancia",
+    
+
+ 
+        "Arroz",
+        "Feijão",
+        "Aveia",
+        "Milho",
+        "Trigo",
+        "Tapioca",
+
+
+
+        "Alface",
+        "Cenoura",
+        "Brócolis",
+        "Abobrinha",
+        "Tomate",
+   
+
+        "Leite de amêndoa",
+        "Leite de soja",
+        "Leite de aveia",
+        "Leite de coco",
+        "Leite de arroz",
+
+
+
+        "Farinha de amêndoa",
+        "Farinha de coco",
+        "Farinha de arroz",
+        "Polvilho",
+        "Farinha de milho"
+    ]
+}
