@@ -1,5 +1,5 @@
 <template>
-  <form id="form-pergunta-chat">
+  <form @submit="(e) => e.preventDefault()">
     <div>
       <div class="listDescription">
         <h3>Lista de ingredientes</h3>
@@ -24,13 +24,13 @@
           </button>
         </b-col>
         <b-col>
-          <button type="submit" class="btn btn-outline-primary mt-4 searchBtn" @click="searchRecipes">
+          <button class="btn btn-outline-primary mt-4 searchBtn" @click="searchRecipes">
             Pesquisar receita
           </button>
         </b-col>
       </b-row>
 
-      <span>{{ searchText }}</span>
+      <span>{{ responseText }}</span>
     </div>
     <br>
     <div id="resposta"></div>
@@ -38,17 +38,43 @@
 </template>
 
 <script>
+import { db } from "../firebase.js"
+import { addDoc, collection, where, query, getDocs } from "firebase/firestore"; 
+
 export default {
   data() {
     return {
-      ingredients: [{
-        text: ""
-      }],
-      searchText: "",
+      ingredients: [{ text: "" }],
+      responseText: "",
       excludeDisabled: true
     }
   },
   methods: {
+    //Atualiza o JSON com uma nova receita
+    updateRecipes: function(newRecipe){
+      let ingredients = this.ingredients.map(ingredient => ingredient.text);
+
+      let document = {
+        ingredients,
+        name: newRecipe
+      }
+
+      addDoc(collection(db, "Recipes"), document)
+    },
+
+    //Verifica se a receita já é conhecida
+    findRecipe: async function(){
+      const recipesRef = collection(db, "Recipes")
+      let ingredients = this.ingredients.map(ingredient => ingredient.text);
+      let recipeQuery = query(recipesRef, where("ingredients", "==", ingredients))
+      console.log(ingredients)
+      let recipe = await (await getDocs(recipeQuery)).docs[0];
+      console.log("RECIPE", recipe)
+      if(recipe){
+        return recipe.data().name
+      }
+      return false;
+    },
     addIngredient: function (e) {
       this.ingredients.push({ text: "" })
       if (this.ingredients.length != 1) {
@@ -63,89 +89,57 @@ export default {
       }
 
     },
-    searchRecipes: function () {
-      let searchText = "Monte uma receita com os seguintes ingredientes: ";
+    searchRecipes: async function () {
+      let knownRecipe = await this.findRecipe();
+      let _this = this;
+      if(knownRecipe){
+        this.responseText = `Com esses ingredientes você consegue fazer um(a): ${knownRecipe}`;
+        return;
+      }
+      let question = "Monte uma receita somente com os seguintes ingredientes: ";
 
-      this.ingredients.forEach(ingredient => searchText += ingredient.text + ", ")
+      this.ingredients.forEach((ingredient, index) => {
+        if(index == this.ingredients.length - 1)
+          question += ingredient.text
+        else
+          question += ingredient.text + ", "}
+        )
 
-      this.searchText = searchText
-
-      // Receber o SELECTOR do formulário
-      const formPerguntaChat = document.getElementById('form-pergunta-chat');
-
+      this.ingredients
       // Chave da API do OPENAI
-      const OPENAI_API_KEY = "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";
+      const OPENAI_API_KEY = "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";
 
-      // Verificar se tem a chave
-      if (OPENAI_API_KEY === "") {
-        document.getElementById('pergunta').innerHTML = "<span style='color: #f00;'>Necessário colocar a chave na API no arquivo custom.js</span>";
-      }
+      fetch("https://api.openai.com/v1/completions", {
 
-      // Acessa o IF quando tem o SELETOR na página HTML
-      if (formPerguntaChat) {
+        // Método para enviar os dados
+        method: "POST",
 
-        // Aguardar o usuário clicar no botão Enviar
-        formPerguntaChat.addEventListener("submit", async (e) => {
+        // Dados ennviados no cabeçalho da requisição
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + OPENAI_API_KEY,
+        },
 
-          // Bloquear o recarregamento da página
-          e.preventDefault();
-
-          // Substituir o texto do botão para "Pesquisando..."
-          //document.getElementById('btn-pergunta-chat').value = "Pesquisando...";
-
-          // Receber o valor do campo pergunta
-          let pergunta = searchText
-
-          // Enviar o texto da pergunta para a página HTML
-          //document.getElementById('pergunta').innerHTML = pergunta;
-
-          // Limpar a resposta
-          document.getElementById('resposta').innerHTML = "<span></span>";
-
-          // Requisição para chatgpt
-          await fetch("https://api.openai.com/v1/completions", {
-
-            // Método para enviar os dados
-            method: "POST",
-
-            // Dados ennviados no cabeçalho da requisição
-            headers: {
-              Accept: "application/json",
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + OPENAI_API_KEY,
-            },
-
-            // Enviar os dados no corpo da requisição
-            body: JSON.stringify({
-              model: "text-davinci-003", //Modelo
-              prompt: pergunta, // Texto da pergunta
-              max_tokens: 2048, // Tamanho da resposta
-              temperature: 0.5 // Criatividade na resposta
-            }),
-          })
-            // Acessa o then quando obtiver resposta
-            .then((resposta) => resposta.json())
-            .then((dados) => {
-              //console.log(dados);
-              //console.log(dados.choices[0].text);
-
-              // Enviar o texto da resposta para a página HTML
-              document.getElementById('resposta').innerHTML = dados.choices[0].text;
-            })
-            // Retorna catch quando gerar erro
-            .catch((error) => {
-              // Enviar o texto da resposta para a página HTML
-              document.getElementById('resposta').innerHTML = "Sem resposta";
-              console.log(error)
-            });
-
-          // Substituir o texto do botão para "Enviar"
-          //document.getElementById('btn-pergunta-chat').value = "Enviar";
+        // Enviar os dados no corpo da requisição
+        body: JSON.stringify({
+          model: "text-davinci-003", //Modelo
+          prompt: question, // Texto da pergunta
+          max_tokens: 3000, // Tamanho da resposta
+          temperature: 0.5 // Criatividade na resposta
+        }),
+        })
+        .then((resposta) => resposta.json())
+        .then((dados) => {
+          _this.responseText = dados.choices[0].text
+          _this.updateRecipes(dados.choices[0].text)
+        })
+        .catch((error) => {
+          console.log(error)
         });
-      }
-
     }
   }
+
 }
 </script>
 
